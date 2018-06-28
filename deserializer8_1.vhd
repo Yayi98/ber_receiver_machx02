@@ -21,6 +21,7 @@ entity deserializer8_1 is
 end deserializer8_1;
 
 architecture rtl of deserializer8_1 is
+
     signal reg40       : std_logic_vector (39 downto 0) := (others => '0');
     signal pdata2mux   : std_logic_vector (7 downto 0)  := (others => '0');
     signal mux2reg40   : std_logic_vector (7 downto 0)  := (others => '0');
@@ -28,7 +29,16 @@ architecture rtl of deserializer8_1 is
     signal decoderOut  : std_logic_vector (7 downto 0)  := (others => '0');
     signal mux1select  : std_logic := '0';
     signal mux2select  : std_logic := '0';
+
+    component IDDRX4B
+    port (
+        D,ECLK,SCLK,RST,ALIGNWD : in std_logic;
+        Q0,Q1,Q2,Q3,Q4,Q5,Q6,Q7 : out std_logic
+    );
+    end component;
+
 begin
+    
     deserializer_inst : IDDRX4B
     generic map (
         GSR => "ENABLED"
