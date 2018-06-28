@@ -23,13 +23,14 @@ entity receiver is
     );
 
     port (
-        sclk  : in std_logic; -- sclk_freq = clk_freq * 10
-        clk   : in std_logic;
-        clkx8 : in std_logic; -- clkx8_freq = clk_freq * 8
-        ce    : in std_logic;
-        reset : in std_logic;
-        sdata : in std_logic;
-        ber   : out std_logic_vector(7 downto 0)
+        sclk    : in std_logic; -- sclk_freq = clk_freq * 10
+        clk     : in std_logic;
+        clkx8   : in std_logic; -- clkx8_freq = clk_freq * 8
+        ce      : in std_logic;
+        alignwd : in std_logic;
+        reset   : in std_logic;
+        sdata   : in std_logic;
+        ber     : out std_logic_vector(7 downto 0)
     );
 
 end receiver;
@@ -45,12 +46,14 @@ architecture rtl of receiver is
 
 begin
 
-    sipo : entity work.sipo
+    sipo : entity work.deserializer8_1
     port map (
-        sclk  => sclk,
-        sdata => sdata,
-        reset => reset,
-        pdata => sipo2dec
+        sclk     => sclk,
+        clk      => clk,
+        sdataIn  => sdata,
+        reset    => reset,
+        pdataOut => sipo2dec,
+        alignwd  => alignwd
     );
 
     decoder : entity work.dec_8b10b
