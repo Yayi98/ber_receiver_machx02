@@ -31,6 +31,9 @@ architecture rtl of deserializer8_1 is
     signal mux2select  : std_logic := '0';
 
     component IDDRX4B
+    generic (
+        GSR : string
+    );
     port (
         D,ECLK,SCLK,RST,ALIGNWD : in std_logic;
         Q0,Q1,Q2,Q3,Q4,Q5,Q6,Q7 : out std_logic
@@ -38,7 +41,7 @@ architecture rtl of deserializer8_1 is
     end component;
 
 begin
-    
+
     deserializer_inst : IDDRX4B
     generic map (
         GSR => "ENABLED"
@@ -84,13 +87,17 @@ begin
     );
 
     loadreg : process(clk,reset)
-    signal temp1 : integer range 0 to 4 := 4;-- temp1 is initiated with 4 because the counting must start from 0
+    variable temp1 : integer range 0 to 4 := 4;-- temp1 is initiated with 4 because the counting must start from 0
     begin
         if reset = '1' then
-            temp1 <= 0
+            temp1 := 0
             reg40 <= (others => '0');
         elsif clk'event and clk = '1' then
-            temp1 <= temp1 + 1;
+            if temp1 = 4 then
+                temp1 := 0;
+            else
+                temp1 := temp1 + 1;
+            end if;
         end if;
         regfull <= '0';
         case temp1 is
