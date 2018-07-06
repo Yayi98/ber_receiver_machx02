@@ -24,10 +24,9 @@ entity receiver is
 
     port (
         sclk    : in std_logic; -- sclk_freq = clk_freq * 10
-        clk     : in std_logic;
+        --clk     : in std_logic;
         clkx8   : in std_logic; -- clkx8_freq = clk_freq * 8
         ce      : in std_logic;
-        alignwd : in std_logic;
         reset   : in std_logic;
         sdata   : in std_logic;
         ber     : out std_logic_vector(7 downto 0)
@@ -37,48 +36,21 @@ end receiver;
 
 architecture rtl of receiver is
 
-    signal sipo2dec  : std_logic_vector(9 downto 0);
-    signal dec2ber   : std_logic_vector(7 downto 0);
-    signal err_bits  : std_logic;
-    signal rng_lsb   : std_logic_vector(23 downto 0);
-    signal rng       : std_logic_vector(7 downto 0);
-    signal error_reg : std_logic_vector(7 downto 0);
+
+    signal dec2ber   : std_logic_vector (7 downto 0);
+    signal err_bits  : std_logic_vector (7 downto 0);
+    signal rng_lsb   : std_logic_vector (23 downto 0);
+    signal rng       : std_logic_vector (7 downto 0);
+    signal error_reg : std_logic_vector (7 downto 0);
 
 begin
 
-    sipo : entity work.deserializer8_1
+    decoder_inst : entity work.deserializer8_1
     port map (
-        sclk     => sclk,
-        clk      => clk,
         sdataIn  => sdata,
+        sclk1    => sclk,
         reset    => reset,
-        pdataOut => sipo2dec,
-        alignwd  => alignwd
-    );
-
-    decoder : entity work.dec_8b10b
-    port map (
-        RESET => reset,
-        RBYTECLK => clk,
-        AI => sipo2dec (kParallelWidth-1),
-        BI => sipo2dec (kParallelWidth-2),
-        CI => sipo2dec (kParallelWidth-3),
-        DI => sipo2dec (kParallelWidth-4),
-        EI => sipo2dec (kParallelWidth-5),
-        FI => sipo2dec (kParallelWidth-6),
-        GI => sipo2dec (kParallelWidth-7),
-        HI => sipo2dec (kParallelWidth-8),
-        II => sipo2dec (kParallelWidth-9),
-        JI => sipo2dec (kParallelWidth-10),
-        KO => open,
-        AO => dec2ber(7),
-        BO => dec2ber(6),
-        CO => dec2ber(5),
-        DO => dec2ber(4),
-        EO => dec2ber(3),
-        FO => dec2ber(2),
-        GO => dec2ber(1),
-        HO => dec2ber(0)
+        pdataOut => dec2ber
     );
 
     prng : entity work.prng32
@@ -101,12 +73,12 @@ begin
 
     ber_proc : process(clkx8,reset)
     begin
-        if rising_edge(clkx8) then
-            if reset = '0' then
+        if reset = '0' then
+            if rising_edge(clkx8) then
                 error_reg <= rng xor dec2ber;
-            else
-                error_reg <= (others => '0');
             end if;
+        else:
+            error_reg <= (others => '0');
         end if;
     end process ber_proc;
 

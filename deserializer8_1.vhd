@@ -3,32 +3,30 @@ use IEEE.STD_LOGIC_1164.ALL;
 use ieee.numeric_std.all;
 use IEEE.std_logic_unsigned.all;
 
-LIBRARY lattice;
-USE lattice.components.all;
-
 LIBRARY machxo2;
 USE machxo2.all;
 
 entity deserializer8_1 is
     port (
         sdataIn  : in std_logic;
-        sclk     : in std_logic;
-        clk      : in std_logic;
+        sclk1    : in std_logic;
         reset    : in std_logic;
-        alignwd  : in std_logic;
+		clkout   : out std_logic;
         pdataOut : out std_logic_vector (7 downto 0)
     );
 end deserializer8_1;
 
 architecture rtl of deserializer8_1 is
 
+    signal sclk    : std_logic;
+    signal clk     : std_logic;
+    signal stop    : std_logic;
     signal reg40       : std_logic_vector (39 downto 0) := (others => '0');
     signal pdata2mux   : std_logic_vector (7 downto 0)  := (others => '0');
     signal mux2reg40   : std_logic_vector (7 downto 0)  := (others => '0');
     signal decoderIn   : std_logic_vector (9 downto 0)  := (others => '0');
     signal decoderOut  : std_logic_vector (7 downto 0)  := (others => '0');
-    signal mux1select  : std_logic := '0';
-    signal mux2select  : std_logic := '0';
+    signal tempreg     : std_logic_vector (9 downto 0)  := (others => '0');
 
     component IDDRX4B
     generic (
@@ -40,7 +38,46 @@ architecture rtl of deserializer8_1 is
     );
     end component;
 
+    component CLKDIVC
+    generic (
+        DIV : string;
+        GSR : string);
+    port (
+        RST: in  std_logic;
+        CLKI: in  std_logic;
+        ALIGNWD: in  std_logic;
+        CDIV1: out std_logic;
+        CDIVX : out std_logic);
+    end component;
+
+    component ECLKSYNCA
+    port (
+        ECLKI : in std_logic;
+        STOP  : in std_logic;
+        ECLKO : out std_logic);
+    end component;
+
 begin
+
+    ECLKSYNCA_inst : ECLKSYNCA
+    port map (
+        ECLKI => sclk1,
+        STOP  => stop,
+        ECLKO => sclk
+    );
+
+    clkdiv_inst : CLKDIVC
+    generic map (
+        DIV => "4.0",
+        GSR => "ENABLED"
+    )
+    port map (
+        RST     => reset,
+        ALIGNWD => '1',
+        CLKI    => sclk,
+        CDIV1   => open,
+        CDIVX   => clk
+    );
 
     deserializer_inst : IDDRX4B
     generic map (
@@ -51,7 +88,7 @@ begin
         ECLK    => sclk,
         SCLK    => clk,
         RST     => reset,
-        ALIGNWD => alignwd,
+        ALIGNWD => '1',
         Q0      => pdata2mux(0),
         Q1      => pdata2mux(1),
         Q2      => pdata2mux(2),
@@ -86,61 +123,38 @@ begin
         AO       => decoderOut(0)
     );
 
-    loadreg : process(clk,reset)
-    variable temp1 : integer range 0 to 4 := 4;-- temp1 is initiated with 4 because the counting must start from 0
+    deserialize_proc : process(clk,reset)
+    variable temp1 : integer range 0 to 4 := 4;
     begin
-        if reset = '1' then
-            temp1 := 0
-            reg40 <= (others => '0');
-        elsif clk'event and clk = '1' then
-            if temp1 = 4 then
-                temp1 := 0;
-            else
-                temp1 := temp1 + 1;
+        if reset = '0' then
+            if clk'event and clk = '1' then
+                if temp1 = 4 then
+                    temp1 := 0;
+                else
+                    temp1 := temp1 + 1;
+                end if;
             end if;
+        else
+            temp1 := 4;
         end if;
-        regfull <= '0';
         case temp1 is
             when 0 =>
-                pdata2mux <= reg40(39 downto 32);
-                reg40(31 downto 0) <= (others => '0');
+                reg40 (39 downto 32) <= pdata2mux;
+                decoderIn <= tempreg;
             when 1 =>
-                pdata2mux <= reg40(31 downto 24);
-                reg40(39 downto 32) <= (others => '0');
+                reg40 (31 downto 24) <= pdata2mux;
+                decoderIn <= reg40 (39 downto 30);
             when 2 =>
-                pdata2mux <= reg40(23 downto 16);
-                reg40(31 downto 24) <= (others => '0');
+                reg40 (23 downto 16) <= pdata2mux;
+                decoderIn <= reg40 (29 downto 20);
             when 3 =>
-                pdata2mux <= reg40(15 downto 8);
-                reg40(23 downto 16) <= (others => '0');
+                reg40 (15 downto 8) <= pdata2mux;
+                decoderIn <= reg40 (19 downto 10);
             when 4 =>
-                pdata2mux <= reg40(7 downto 0);
-                reg40(15 downto 8) <= (others => '0');
+                reg40 (7 downto 0) <= pdata2mux;
+                decoderIn <= reg40 (9 downto 0);
         end case;
     end process;
-
-    clrreg : process(clk,reset)
-    signal temp2 : integer range 0 to 3 : 3;-- temp2 is initiated with 3 because the counting must start from 0
-    begin
-        if reset = '1' then
-            temp2 <= 0;
-        elsif clk'event and clk = '1' then
-            temp2 <= temp2 + 1;
-        end if;
-        case temp2 is
-            when 0 =>
-                decoderOut <= reg40(39 downto 32);
-            when 1 =>
-                decoderOut <= reg40(31 downto 24);
-            when 2 =>
-                decoderOut <= reg40(23 downto 16);
-            when 3 =>
-                decoderOut <= reg40(15 downto 8);
-            when 4 =>
-                decoderOut <= reg40(7 downto 0);
-        end case;
-    end process;
-
     pdataOut <= decoderOut;
-
+	clkout   <= clk;
 end rtl;
